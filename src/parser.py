@@ -1,5 +1,8 @@
-from abc import ABC
+from abc import ABC, abstractmethod
+from typing import Dict, List
+
 import requests
+
 
 class Parser(ABC):
     """
@@ -7,33 +10,44 @@ class Parser(ABC):
     """
 
     @abstractmethod
-    def _connect_api(self, keyword):
+    def connect_api(self):
+        """Абстрактный метод подключения к API"""
         pass
 
     @abstractmethod
-    def load_vacancies(self, keyword):
+    def load_vacancies(self, search_query: str, page: int = 1):
+        """Абстрактный метод загрузки вакансий"""
         pass
 
+
 class HH(Parser):
-    """
-    Класс для работы с API HeadHunter
-    Класс Parser является родительским классом, который вам необходимо реализовать
-    """
+    """Класс для работы с API HeadHunter
+    Класс Parser является родительским классом"""
 
-    def _connect_api(self, keyword):
-        url = 'https://api.hh.ru/vacancies'
-        params = {'text': keyword, 'page': 0, 'per_page': 100}
-        response = requests.get(url, params = params)
-        if response.status_code != 200:
-            print(f"Произошла ошибка {response.status_code}")
-            return None
-        data = response.json()
-        return data
+    def __init__(self, base_url="https://api.hh.ru/vacancies") -> None:
+        self.__base_url = base_url
 
+    @property
+    def base_url(self):
+        return self.__base_url
 
-    def load_vacancies(self, keyword = ""):
-        data = self._connect_api(keyword)
-        if data and "items" in data:
-            return data["items"]
-        else:
+    def connect_api(self) -> bool:
+        """Метод проверяющий доступность API"""
+        try:
+            response = requests.get(self.base_url)
+            response.raise_for_status()
+            return True
+        except requests.exceptions.RequestException as e:
+            print(f"Ошибка подключения: {e}")
+            return False
+
+    def load_vacancies(self, search_query: str, per_page: int = 3) -> List[Dict]:
+        """Метод получения вакансий с сайта hh.ru. Передаем запрос и количество на страницу"""
+        params = {"text": search_query, "per_page": per_page}
+        try:
+            response = requests.get(self.base_url, params=params)
+            response.raise_for_status()
+            return response.json().get("items", [])
+        except Exception as e:
+            print(f"Неизвестная ошибка: {e}")
             return []
